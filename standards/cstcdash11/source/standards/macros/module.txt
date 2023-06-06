@@ -1,4 +1,0 @@
-This is the CDASH 1.1 runtime macro library.
-
-@name CDASH V1.1 (Runtime)
-@since V1.2

@@ -1,9 +1,0 @@
-*.log
-*.class
-/dist/
-.vscode/
-.history/
-bin/
-develop/
-releases/
-.gitignore

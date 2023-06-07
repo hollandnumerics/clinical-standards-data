@@ -1,1 +1,0 @@
-For xml standards, add schema info here and delete this file.  Otherwise, delete this folder.

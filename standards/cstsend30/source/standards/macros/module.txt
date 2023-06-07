@@ -1,4 +1,0 @@
-This is the SEND 3.0 runtime macro library.
-
-@name SEND V3.0 (Runtime)
-@since V1.5

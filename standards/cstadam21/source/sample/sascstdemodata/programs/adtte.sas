@@ -5,7 +5,8 @@
 * One record per subject per event.                                              *;
 *                                                                                *;
 * Input data sets: sdtm.ds, sdtm.sv, adam.adsl                                   *;
-*                  metadata.source_columns, adam_cst.adtte                       *;
+*                  metadata.source_columns, metadata.source_tables               *;
+*                  adam_cst.adtte                                                *;
 *                                                                                *;
 * CSTversion  1.7.6                                                              *;
 **********************************************************************************;
@@ -16,7 +17,7 @@ DATA ds;
 RUN;
 
 PROC SQL;
-  CREATE TABLE adtte AS
+  CREATE TABLE adtte1 AS
     SELECT a.*
           ,INPUT(b.dsstdtc, YYMMDD10.) AS adt
           ,a.trt01p AS trtp
@@ -77,16 +78,31 @@ DATA _NULL_;
   PUT column "= " column ";";
 RUN;
 
-DATA adam.adtte (
+DATA _NULL_;
+  SET metadata.source_tables;
+  WHERE table = "ADTTE";
+  LENGTH _label $200;
+  FILE src(dslabel.source);
+  _label = STRIP(label);
+  PUT " (DESCRIPTION='" _label +(-1) "');";
+  FILE src(sort.source);
+  PUT keys ";";
+RUN;
+
+DATA adtte2 (
   %INCLUDE src(columns.source);
                );
   %INCLUDE src(attrib.source);
-  SET adtte;
+  SET adtte1;
   BY studyid usubjid paramcd;
   %INCLUDE src(initial.source);
 RUN;
 
+PROC SORT DATA = adtte2 OUT = adam.adtte %INCLUDE src(dslabel.source);;
+  BY %INCLUDE src(sort.source);
+RUN;
+
 /* Compare with ADTTE in adam_cst */
 PROC COMPARE BASE=adam_cst.adtte COMPARE=adam.adtte LISTALL BRIEFSUMMARY MAXPRINT=(5000, 100) METHOD=RELATIVE CRITERION=0.001;
-  ID studyid usubjid paramcd;
+  ID  %INCLUDE src(sort.source);
 RUN;

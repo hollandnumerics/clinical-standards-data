@@ -5,7 +5,8 @@
 * One record per subject per AE.                                                 *;
 *                                                                                *;
 * Input data sets: sdtm.ae, sdtm.ex, adam.adsl                                   *;
-*                  metadata.source_columns, adam_cst.adae                        *;
+*                  metadata.source_columns, metadata_source_tables               *;
+*                  adam_cst.adae                                                 *;
 *                                                                                *;
 * CSTversion  1.7.6                                                              *;
 **********************************************************************************;
@@ -230,8 +231,8 @@ PROC SORT DATA=aoccifl;
   BY studyid usubjid astdtm aeseq aedecod;
 RUN;
 
-/* Assign variable attributes from metadata.source_columns */
-FILENAME src CATALOG 'work.columns_adae';
+/* Assign data set attributes from metadata.source_columns + source_tables */
+FILENAME src CATALOG 'work.meta_adae';
 
 DATA _NULL_;
   SET metadata.source_columns;
@@ -253,7 +254,18 @@ DATA _NULL_;
   PUT column "= " column ";";
 RUN;
 
-DATA adam.adae (
+DATA _NULL_;
+  SET metadata.source_tables;
+  WHERE table = "ADAE";
+  LENGTH _label $200;
+  FILE src(dslabel.source);
+  _label = STRIP(label);
+  PUT " (DESCRIPTION='" _label +(-1) "');";
+  FILE src(sort.source);
+  PUT keys ";";
+RUN;
+
+DATA adae2 (
   %INCLUDE src(columns.source);
                );
   %INCLUDE src(attrib.source);
@@ -265,7 +277,11 @@ DATA adam.adae (
   %INCLUDE src(initial.source);
 RUN;
 
+PROC SORT DATA = adae2 OUT = adam.adae %INCLUDE src(dslabel.source);;
+  BY %INCLUDE src(sort.source);
+RUN;
+
 /* Compare with ADAE in adam_cst */
 PROC COMPARE BASE=adam_cst.adae COMPARE=adam.adae LISTALL BRIEFSUMMARY MAXPRINT=(5000, 100) METHOD=RELATIVE CRITERION=0.001;
-  ID studyid usubjid aedecod aestdtc aeendtc;
+  ID %INCLUDE src(sort.source);
 RUN;

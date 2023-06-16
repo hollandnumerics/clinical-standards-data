@@ -5,7 +5,8 @@
 * One record per subject.                                                        *;
 *                                                                                *;
 * Input data sets: sdtm.ds, sdtm.sv, sdtm.ex, sdtm.dm                            *;
-*                  metadata.source_columns, adam_cst.adsl                        *;
+*                  metadata.source_columns, metadata.source_tables               *;
+*                  adam_cst.adsl                                                 *;
 *                                                                                *;
 * CSTversion  1.7.6                                                              *;
 **********************************************************************************;
@@ -69,7 +70,7 @@ DATA complt6;
 RUN;
 
 PROC SQL;
-  CREATE TABLE adsl AS
+  CREATE TABLE adsl1 AS
     SELECT a.*
           ,a.arm AS trt01p
           ,(CASE
@@ -168,8 +169,8 @@ PROC SQL;
   ;
 QUIT;
 
-/* Assign variable attributes from metadata.source_columns */
-FILENAME src CATALOG 'work.columns_adsl';
+/* Assign data set attributes from metadata.source_columns + source_tables */
+FILENAME src CATALOG 'work.meta_adsl';
 
 DATA _NULL_;
   SET metadata.source_columns;
@@ -191,15 +192,30 @@ DATA _NULL_;
   PUT column "= " column ";";
 RUN;
 
-DATA adam.adsl (
+DATA _NULL_;
+  SET metadata.source_tables;
+  WHERE table = "ADSL";
+  LENGTH _label $200;
+  FILE src(dslabel.source);
+  _label = STRIP(label);
+  PUT " (DESCRIPTION='" _label +(-1) "');";
+  FILE src(sort.source);
+  PUT keys ";";
+RUN;
+
+DATA adsl2 (
   %INCLUDE src(columns.source);
                );
   %INCLUDE src(attrib.source);
-  SET adsl;
+  SET adsl1;
   %INCLUDE src(initial.source);
+RUN;
+
+PROC SORT DATA = adsl2 OUT = adam.adsl %INCLUDE src(dslabel.source);;
+  BY %INCLUDE src(sort.source);
 RUN;
 
 /* Compare with ADSL in adam_cst */
 PROC COMPARE BASE=adam_cst.adsl COMPARE=adam.adsl LISTALL BRIEFSUMMARY MAXPRINT=(5000, 100) METHOD=RELATIVE CRITERION=0.001;
-  ID studyid usubjid;
+  ID %INCLUDE src(sort.source);
 RUN;

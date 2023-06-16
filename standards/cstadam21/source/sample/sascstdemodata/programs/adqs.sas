@@ -5,13 +5,14 @@
 * One record per subject per question per visit.                                 *;
 *                                                                                *;
 * Input data sets: sdtm.qs, adam.adsl                                            *;
-*                  metadata.source_columns, adam_cst.adqs                        *;
+*                  metadata.source_columns, metadata.source_tables               *;
+*                  adam_cst.adqs                                                 *;
 *                                                                                *;
 * CSTversion  1.7.6                                                              *;
 **********************************************************************************;
 
 PROC SQL;
-  CREATE TABLE adqs AS
+  CREATE TABLE adqs1 AS
     SELECT a.*
           ,a.trt01p AS trtp
           ,a.trt01pn AS trtpn
@@ -59,8 +60,8 @@ PROC SQL;
   ;
 QUIT;
 
-/* Assign variable attributes from metadata.source_columns */
-FILENAME src CATALOG 'work.columns_adqs';
+/* Assign data set attributes from metadata.source_columns + source_tables */
+FILENAME src CATALOG 'work.meta_adqs';
 
 DATA _NULL_;
   SET metadata.source_columns;
@@ -82,16 +83,31 @@ DATA _NULL_;
   PUT column "= " column ";";
 RUN;
 
-DATA adam.adqs (
+DATA _NULL_;
+  SET metadata.source_tables;
+  WHERE table = "ADQS";
+  LENGTH _label $200;
+  FILE src(dslabel.source);
+  _label = STRIP(label);
+  PUT " (DESCRIPTION='" _label +(-1) "');";
+  FILE src(sort.source);
+  PUT keys ";";
+RUN;
+
+DATA adqs2 (
   %INCLUDE src(columns.source);
                );
   %INCLUDE src(attrib.source);
-  SET adqs;
+  SET adqs1;
   BY studyid usubjid paramcd adt qsseq;
   %INCLUDE src(initial.source);
 RUN;
 
+PROC SORT DATA = adqs2 OUT = adam.adqs %INCLUDE src(dslabel.source);;
+  BY %INCLUDE src(sort.source);
+RUN;
+
 /* Compare with ADQS in adam_cst */
 PROC COMPARE BASE=adam_cst.adqs COMPARE=adam.adqs LISTALL BRIEFSUMMARY MAXPRINT=(5000, 100) METHOD=RELATIVE CRITERION=0.001;
-  ID studyid usubjid paramcd adt qsseq;
+  ID %INCLUDE src(sort.source);
 RUN;
